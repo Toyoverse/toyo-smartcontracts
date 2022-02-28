@@ -69,7 +69,7 @@ npm install --save-dev solidity-coverage
 
 truffle run coverage
 
-# Gas Reportes
+# Gas Reports
 
 https://www.npmjs.com/package/eth-gas-reporter
 
