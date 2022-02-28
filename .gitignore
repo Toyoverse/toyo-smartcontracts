@@ -1,0 +1,17 @@
+build
+node_modules
+.env
+artifacts
+truffle-config.polygon.js
+scenario.json
+*.zip
+verified-sources
+.coverage_artifacts
+.coverage_contracts
+coverage.*
+coverage
+*.min.js
+metadata-template.json
+.deps
+.vs
+package-lock.json
