@@ -3,7 +3,9 @@
 solcjs -- version
 
 npm install -g solc (solc@0.8.9)
+
 npm install -g ganache-cli
+
 npm install
 
 # Compile contracts
@@ -27,6 +29,7 @@ Infura project ID created for this project. This is used to connect to Infura RP
 # Test contracts
 
 truffle test --network development
+
 truffle test --network development --stacktrace  --compile-none
 
 # Migrate contracts
@@ -55,7 +58,9 @@ https://faucet.polygon.technology/
 You can access the local folder on Remix by exposing it through these commands:
 
 npm install -g @remix-project/remixd
+
 remixd -s ./ -u https://remix.ethereum.org
+
 remixd -s ./ -u http://remix.ethereum.org
 
 # Tests Coverage
