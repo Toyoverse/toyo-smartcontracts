@@ -1,14 +1,14 @@
-const NftToken = artifacts.require("./tokens/NftToken.sol");
-const NftTokenToyo = artifacts.require("./tokens/NftTokenToyo.sol");
-const NftTokenBox = artifacts.require("./tokens/NftTokenBox.sol");
-const NftTokenAirdrop = artifacts.require("./tokens/NftTokenAirdrop.sol");
+const NftToken = artifacts.require("./tokens/ERC721/NftToken.sol");
+const NftTokenToyo = artifacts.require("./tokens/ERC721/NftTokenToyo.sol");
+const NftTokenBox = artifacts.require("./tokens/ERC721/NftTokenBox.sol");
+const NftTokenAirdrop = artifacts.require("./tokens/ERC721/NftTokenAirdrop.sol");
 const NftTokenStorage = artifacts.require("./factory/NftTokenStorage.sol");
 const NftTokenCrowdsale = artifacts.require("./factory/NftTokenCrowdsale.sol");
 const NftTokenSwap = artifacts.require("./swap/NftTokenSwap.sol");
 const NftTokenSwapStorage = artifacts.require("./swap/NftTokenSwapStorage.sol");
 
 module.exports = async function(deployer, network, accounts) {
-    //return true;
+    return true;
     // Already deployed 
   
     /*await deployer.deploy(NftToken, "Toyo - First 9", "TOYF9");

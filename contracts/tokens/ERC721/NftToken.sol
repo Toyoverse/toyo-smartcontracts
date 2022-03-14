@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "../@rarible/royalties/contracts/impl/RoyaltiesV2Impl.sol";
-import "../@rarible/royalties/contracts/LibPart.sol";
-import "../@rarible/royalties/contracts/LibRoyaltiesV2.sol";
+import "../../@rarible/royalties/contracts/impl/RoyaltiesV2Impl.sol";
+import "../../@rarible/royalties/contracts/LibPart.sol";
+import "../../@rarible/royalties/contracts/LibRoyaltiesV2.sol";
 
 contract NftToken is
     ERC721URIStorage,

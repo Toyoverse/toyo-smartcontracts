@@ -3,8 +3,9 @@
 solcjs -- version
 
 npm install -g solc (solc@0.8.9)
-
 npm install -g ganache-cli
+npm install --save-dev @openzeppelin/truffle-upgrades
+npm install @openzeppelin/contracts-upgradeable
 
 npm install
 
@@ -30,7 +31,9 @@ Infura project ID created for this project. This is used to connect to Infura RP
 
 truffle test --network development
 
-truffle test --network development --stacktrace  --compile-none
+truffle test --network development --stacktrace --compile-none
+
+truffle test --network development ./test/ERC20/ToyoGovernanceToken.test.js
 
 # Migrate contracts
 
@@ -38,7 +41,7 @@ truffle test --network development --stacktrace  --compile-none
 
 truffle migrate --network development --reset
 
-## Test
+## Testnet
 
 truffle migrate --network polygon_infura_testnet --f 2 --to 2
 
@@ -80,3 +83,7 @@ npm install --save-dev eth-gas-reporter
 npm install truffle-contract-size
 
 truffle run contract-size
+
+# Migrate Governance Token (ERC20)
+
+truffle migrate --network polygon_infura_testnet --f 4 --to 4

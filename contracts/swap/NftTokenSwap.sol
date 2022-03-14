@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
-import "../tokens/NftToken.sol";
-import "../tokens/NftTokenBox.sol";
-import "../tokens/NftTokenToyo.sol";
+import "../tokens/ERC721/NftToken.sol";
+import "../tokens/ERC721/NftTokenBox.sol";
+import "../tokens/ERC721/NftTokenToyo.sol";
 import "../factory/NftTokenStorage.sol";
 import "./NftTokenSwapStorage.sol";
 

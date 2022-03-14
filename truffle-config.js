@@ -51,18 +51,29 @@ module.exports = {
     },
 
     polygon_infura_testnet: {
-      provider: () => new HDWalletProvider({
-        mnemonic: {
-          phrase: mnemonic
-        },
-        providerOrUrl:
-         "https://polygon-mumbai.infura.io/v3/" + infuraProjectId
-      }),
+      provider: () => new HDWalletProvider(
+        privateKeys,
+        "https://polygon-mumbai.infura.io/v3/" + infuraProjectId
+      ),
       network_id: 80001,
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true,
       networkCheckTimeout: 100000
+    },
+
+    polygon_infura_mainnet: {
+      provider: () => new HDWalletProvider(
+        privateKeys,
+        "https://polygon-mainnet.infura.io/v3/" + infuraProjectId
+      ),
+      network_id: 137,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+      networkCheckTimeout: 100000,
+      gas: 3300000,
+      gasPrice: 132000000000,
     },
 
     // Another network with more advanced options...
@@ -96,14 +107,6 @@ module.exports = {
 
   // Set default mocha options here, use special reporters etc.
   mocha: {
-    // timeout: 100000
-    reporter: 'eth-gas-reporter',
-    reporterOptions : {
-      currency: 'USD',
-      coinmarketcap: 'f41f0cf6-dfe2-4f7e-847b-4a4f7dd0115f',
-      //outputFile: 'gas-report.txt',
-      showTimeSpent: true
-    }
   },
 
   // Configure your compilers
