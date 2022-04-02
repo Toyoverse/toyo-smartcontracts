@@ -11,7 +11,7 @@ npm install
 
 # Compile contracts
 
-truffle compile
+npx truffle compile
 
 # Configure env variables
 
@@ -29,21 +29,21 @@ Infura project ID created for this project. This is used to connect to Infura RP
 
 # Test contracts
 
-truffle test --network development
+npx truffle test --network development
 
-truffle test --network development --stacktrace --compile-none
+npx truffle test --network development --stacktrace --compile-none
 
-truffle test --network development ./test/ERC20/ToyoGovernanceToken.test.js
+npx truffle test --network development ./test/ERC20/ToyoGovernanceToken.test.js
 
 # Migrate contracts
 
 ## Development
 
-truffle migrate --network development --reset
+npx truffle migrate --network development --reset
 
 ## Testnet
 
-truffle migrate --network polygon_infura_testnet --f 2 --to 2
+npx truffle migrate --network polygon_infura_testnet --f 2 --to 2
 
 ## Production
 
@@ -86,4 +86,8 @@ truffle run contract-size
 
 # Migrate Governance Token (ERC20)
 
-truffle migrate --network polygon_infura_testnet --f 4 --to 4
+npx truffle migrate --network dashboard --f 4 --to 4
+
+# Verify contracts
+
+npx truffle run verify ToyoGovernanceToken --network polygon_infura_mainnet --debug
