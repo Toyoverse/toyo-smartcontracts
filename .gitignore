@@ -15,5 +15,5 @@ metadata-template.json
 .deps
 .vs
 package-lock.json
-receipts/mumbai
+receipts
 /.openzeppelin
