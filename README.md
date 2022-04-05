@@ -150,6 +150,16 @@ NFTTOKENSWAP=0x00258f054bD2f559d38Abe63b975a5F87A617F8d
 
 10 - Caixa aberta - Open Fortified Kyntunt Seed Box
 
+11 - Airdrop - Christmas 2021 - Santa Claus Head Ticket
+
+12 - Airdrop - Christmas 2021 - Killjoy Head Ticket
+
+13 - Airdrop - Christmas 2021 - Rudolph Head Ticket
+
+14 - Caixa aberta - Open Jakana Seed Box
+
+15 - Caixa aberta - Open Fortified Jakana Seed Box
+
 # Test MATIC
 
 https://faucet.polygon.technology/
