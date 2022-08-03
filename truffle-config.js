@@ -20,11 +20,11 @@
 
 require('dotenv').config();
 
-const mnemonic = process.env["MNEMONIC"];
-
-const infuraProjectId = process.env["INFURA_PROJECT_ID"];
-
 const HDWalletProvider = require('@truffle/hdwallet-provider');
+
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID;
+const POLYGONSCAN_KEY = process.env.POLYGONSCAN_KEY;
 
 module.exports = {
   /**
@@ -52,58 +52,43 @@ module.exports = {
 
     polygon_infura_testnet: {
       provider: () => new HDWalletProvider(
-        privateKeys,
-        "https://polygon-mumbai.infura.io/v3/" + infuraProjectId
+        PRIVATE_KEY,
+        "https://polygon-mumbai.infura.io/v3/" + INFURA_PROJECT_ID
       ),
       network_id: 80001,
-      confirmations: 2,
+      confirmations: 1,
       timeoutBlocks: 200,
       skipDryRun: true,
-      networkCheckTimeout: 100000
+      networkCheckTimeout: 100000,
+      gas: 3000000,
+      gasPrice: 80000000000,
     },
 
     polygon_infura_mainnet: {
       provider: () => new HDWalletProvider(
-        privateKeys,
-        "https://polygon-mainnet.infura.io/v3/" + infuraProjectId
+        PRIVATE_KEY,
+        "https://polygon-mainnet.infura.io/v3/" + INFURA_PROJECT_ID
       ),
       network_id: 137,
-      confirmations: 2,
-      timeoutBlocks: 200,
+      confirmations: 0,
+      timeoutBlocks: 40,
       skipDryRun: true,
       networkCheckTimeout: 100000,
-      gas: 3300000,
-      gasPrice: 132000000000,
-    },
-
-    // Another network with more advanced options...
-    // advanced: {
-    // port: 8777,             // Custom port
-    // network_id: 1342,       // Custom network
-    // gas: 8500000,           // Gas sent with each transaction (default: ~6700000)
-    // gasPrice: 20000000000,  // 20 gwei (in wei) (default: 100 gwei)
-    // from: <address>,        // Account to send txs from (default: accounts[0])
-    // websocket: true        // Enable EventEmitter interface for web3 (default: false)
-    // },
-    // Useful for deploying to a public network.
-    // NB: It's important to wrap the provider as a function.
-    // ropsten: {
-    // provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
-    // network_id: 3,       // Ropsten's id
-    // gas: 5500000,        // Ropsten has a lower block limit than mainnet
-    // confirmations: 2,    // # of confs to wait between deployments. (default: 0)
-    // timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
-    // skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
-    // },
-    // Useful for private networks
-    // private: {
-    // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
-    // network_id: 2111,   // This network is yours, in the cloud.
-    // production: true    // Treats this network as if it was a public net. (default: false)
-    // }
+      gas: 800000,
+      gasPrice: 80000000000,
+      disableConfirmationListener: true,
+    }
   },
 
-  plugins: ["solidity-coverage", "truffle-contract-size"],
+  // plugins: ["solidity-coverage", "truffle-contract-size"],
+
+  plugins: [
+    'truffle-plugin-verify'
+  ],
+
+  api_keys: {
+    polygonscan: POLYGONSCAN_KEY
+  },
 
   // Set default mocha options here, use special reporters etc.
   mocha: {
@@ -114,13 +99,13 @@ module.exports = {
     solc: {
       version: "0.8.9",    // Fetch exact version from solc-bin (default: truffle's version)
       docker: false,       // Use "0.5.1" you've installed locally with docker (default: false)
-       settings: {          // See the solidity docs for advice about optimization and evmVersion
-         optimizer: {
-           enabled: true,
-           runs: 1
-         },
-         evmVersion: "byzantium"
-       }
+      settings: {          // See the solidity docs for advice about optimization and evmVersion
+        optimizer: {
+          enabled: true,
+          runs: 1
+        },
+        evmVersion: "byzantium"
+      }
     }
   },
 
@@ -135,13 +120,13 @@ module.exports = {
   // $ truffle migrate --reset --compile-all
   //
   // db: {
-    // enabled: false,
-    // host: "127.0.0.1",
-    // adapter: {
-    //   name: "sqlite",
-    //   settings: {
-    //     directory: ".db"
-    //   }
-    // }
+  // enabled: false,
+  // host: "127.0.0.1",
+  // adapter: {
+  //   name: "sqlite",
+  //   settings: {
+  //     directory: ".db"
+  //   }
+  // }
   // }
 };

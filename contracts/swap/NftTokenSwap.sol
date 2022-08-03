@@ -14,10 +14,13 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
     using SafeMath for uint256;
     using Counters for Counters.Counter;
     using Strings for uint256;
+    using ECDSA for bytes32;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -85,17 +88,41 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
         tokenSwapStorage = _swapStorage;
     }
 
+    address public signerAddress;
+
+    function matchSigner(bytes32 hash, bytes memory signature) private view returns (bool) {
+        return signerAddress == hash.toEthSignedMessageHash().recover(signature);
+    }
+
     function swapToken(
-        address _sender,
         uint256 _tokenId,
-        uint256 _typeId
+        uint256 _typeId,
+        string calldata _code,
+        bytes memory _signature
     )
         public
-        payable
         nonReentrant
-        isValidAddress(_sender)
+        isValidAddress(msg.sender)
         isValidTokenType(_typeId)
         whenNotPaused
+    {
+        require(matchSigner(keccak256(abi.encodePacked(_tokenId.toString(), _code)), _signature), "signature not valid");
+        
+        _beforeTokenSwap(msg.sender, _tokenId, _typeId);
+
+        uint256 _total = getTokenSwapQuantity(_typeId);
+
+        for (uint256 _order = 1; _order <= _total; _order++) {
+            uint256 _toTypeId = getTokenSwapMapping(_typeId, _order);
+            bool byToken = hasMetadataByToken(_typeId, _order);
+            uint256 newTokenId = _deliverTokens(msg.sender, _toTypeId, byToken, _code);
+
+            emit TokenSwapped(msg.sender, _typeId, _toTypeId, _tokenId, newTokenId);
+        }
+    }
+
+    function _beforeTokenSwap( address _sender, uint256 _tokenId, uint256 _typeId)
+    private
     {
         if(tokenBox.exists(_tokenId))
         {
@@ -103,7 +130,7 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
 
             string memory tokenMetadata = tokenBox.tokenURI(_tokenId);
 
-            validateTypeOwnership(_typeId, tokenMetadata);
+            _validateTypeOwnership(_typeId, tokenMetadata);
 
             tokenBox.burn(_tokenId);
         }
@@ -113,23 +140,13 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
 
             string memory tokenMetadata = token.tokenURI(_tokenId);
 
-            validateTypeOwnership(_typeId, tokenMetadata);
+            _validateTypeOwnership(_typeId, tokenMetadata);
 
             token.transferFrom(msg.sender, address(this), _tokenId);
         }
-
-        uint256 _total = getTokenSwapQuantity(_typeId);
-
-        for (uint256 _order = 1; _order <= _total; _order++) {
-            uint256 _toTypeId = getTokenSwapMapping(_typeId, _order);
-            bool byToken = hasMetadataByToken(_typeId, _order);
-            uint256 newTokenId = _deliverTokens(msg.sender, _toTypeId, byToken);
-
-            emit TokenSwapped(msg.sender, _typeId, _toTypeId, _tokenId, newTokenId);
-        }
     }
 
-    function validateTypeOwnership(
+    function _validateTypeOwnership(
          uint256 _typeId,
          string memory tokenMetadata
     )
@@ -144,17 +161,17 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
         );
     }
 
-   function tokenURI(uint256 typeId, uint256 tokenId, bool byToken) public view returns (string memory) {
+   function tokenURI(uint256 typeId, string calldata code, bool byToken) public view returns (string memory) {
         string memory baseURI = tokenStorage.getMetadata(typeId);
         
         if(byToken) {
-            return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
+            return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, code, ".json")) : "";
         }
 
         return baseURI;
     }
 
-    function _deliverTokens(address _spender, uint256 _typeId, bool byToken) 
+    function _deliverTokens(address _spender, uint256 _typeId, bool _byToken, string calldata _code) 
         internal
         returns (uint256 newTokenId) {
         
@@ -163,9 +180,9 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
         tokenStorage.incrementTokenId();
 
         uint256 newItemId = tokenStorage.getTotalMinted();
-        string memory metadata = tokenURI(_typeId, newItemId, byToken);
+        string memory metadata = tokenURI(_typeId, _code, _byToken);
 
-        if(byToken){
+        if(_byToken){
             tokenToyo.mintWithRoyalties(
                 _spender,
                 metadata,
@@ -224,6 +241,13 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
     // -----------------------------------------
     // Public only DEFAULT_ADMIN_ROLE
     // -----------------------------------------
+
+    function setSignerAddress(address _signerAddress)
+        public
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        signerAddress = _signerAddress;
+    }
 
     function setToken(NftToken _token)
         public

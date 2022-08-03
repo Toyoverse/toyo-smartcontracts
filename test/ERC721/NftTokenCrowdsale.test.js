@@ -2,6 +2,8 @@ function ether(n) {
   return new web3.utils.BN(web3.utils.toWei(n, 'ether'));
 }
 
+require('dotenv').config();
+
 const { BN } = require('bn.js');
 
 require('chai')
@@ -20,36 +22,23 @@ const NftTokenSwap = artifacts.require('NftTokenSwap');
 const NftTokenSwapStorage = artifacts.require('NftTokenSwapStorage');
 
 let deployedToken,
-    deployedTokenStorage,
-    deployedTokenSwapStorage,
-    deployedTokenToyo,
-    deployedTokenBox,
-    deployedTokenAirdrop,
-    deployedFactory,
-    deployedSwap;
+  deployedTokenStorage,
+  deployedTokenSwapStorage,
+  deployedTokenToyo,
+  deployedTokenBox,
+  deployedTokenAirdrop,
+  deployedFactory,
+  deployedSwap;
 
 let paused;
-let tokenType1,rate1,maxSupply1,purchaseCap1,metadata1;
-let tokenType2,rate2,maxSupply2,purchaseCap2,metadata2;
-let tokenType3,rate3,maxSupply3,purchaseCap3,metadata3;
-let tokenType4,rate4,maxSupply4,purchaseCap4,metadata4;
+let tokenType1, rate1, maxSupply1, purchaseCap1, metadata1;
+let tokenType2, rate2, maxSupply2, purchaseCap2, metadata2;
+let tokenType3, rate3, maxSupply3, purchaseCap3, metadata3;
+let tokenType4, rate4, maxSupply4, purchaseCap4, metadata4;
 
-let coolDownSeconds,royaltiesRecipientAddress,percentageBasisPoints
+let coolDownSeconds, royaltiesRecipientAddress, percentageBasisPoints
 
 contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, player3]) {
-  
-  /*
-  beforeEach(async function() {
-    this.token = await NftToken.deployed();
-    this.vault = "0x2Ba569fC0C16fBDaebe68D17642126118E440ce0";
-
-    await this.crowdsale.setVault(this.vault);
-    await this.crowdsale.setToken(this.token.address);
-    await this.crowdsale.setCoolDown(new web3.utils.BN(0));
-    await this.crowdsale.unpause(this.tokenType1);
-    await this.crowdsale.unpause(this.tokenType2);
-    await this.crowdsale.setCoolDown(0);
-  });*/
 
   beforeEach(async function () {
     // Token config
@@ -59,134 +48,42 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     coolDownSeconds = new BN(0);
     royaltiesRecipientAddress = royaltyAddress;
     percentageBasisPoints = new web3.utils.BN(300); // 3% royalties
-    
-    // Deploy NftToken
-    /*this.token = await NftToken.new(
-      this.name,
-      this.symbol
-    );*/
-
-
-
-    /*
-    this.token = await NftToken.deployed();
-    this.tokenStorage = await NftTokenStorage.deployed();
-    this.tokenSwapStorage = await NftTokenSwapStorage.deployed();
-    this.tokenToyo = await NftTokenToyo.deployed();
-    this.tokenBox = await NftTokenBox.deployed();
-    this.tokenAirdrop = await NftTokenAirdrop.deployed();
-    this.tokenSwap = await NftTokenSwap.deployed();
-    this.crowdsale = await NftTokenCrowdsale.deployed();
-    */
-
-    /*
-    console.log("NftToken address:", this.token.address);
-    console.log("NftTokenStorage address:", this.tokenStorage.address);
-    console.log("NftTokenSwapStorage address:", this.tokenSwapStorage.address);
-    console.log("NftTokenToyo address:", this.tokenToyo.address);
-    console.log("NftTokenBox address:", this.tokenBox.address);
-    console.log("NftTokenAirdrop address:", this.tokenAirdrop.address);
-    console.log("NftTokenSwap address:", this.tokenSwap.address);
-    console.log("NftTokenCrowdsale address:", this.crowdsale.address);
-    */
-
-    
-
-
 
     deployedToken = await NftToken.new("Toyo - First 9", "TOYF9");
     deployedTokenStorage = await NftTokenStorage.new();
     deployedTokenSwapStorage = await NftTokenSwapStorage.new();
 
-    //await deployer.deploy(NftToken, "Toyo - First 9", "TOYF9");
-    //await deployer.deploy(NftTokenStorage);
-    //await deployer.deploy(NftTokenSwapStorage);
-
-    /*
-    deployedToken = await NftToken.deployed();
-    deployedTokenStorage = await NftTokenStorage.deployed();
-    deployedTokenSwapStorage = await NftTokenSwapStorage.deployed();
-    */
-    
-    /*const _deployedTokenAddress = _deployedToken.address;
-    const _deployedTokenStorageAddress = _deployedTokenStorage.address;
-    const _deployedTokenSwapStorageAddress = _deployedTokenSwapStorage.address;*/
-
-    // (........................................)
-
-    // const _deployedTokenAddress = "0x0";
-    // const _deployedTokenStorageAddress = "0x0";
-    // const _deployedTokenSwapStorageAddress = "0x0";
-
     const _vault = vault; // "0x2Ba569fC0C16fBDaebe68D17642126118E440ce0";
     const _royaltiesRecipientAddress = "0x2Ba569fC0C16fBDaebe68D17642126118E440ce0";
     const _coolDownSeconds = new web3.utils.BN(33); // 33 seconds
-    const _percentageBasisPoints =  new web3.utils.BN(300); // 3% royalties
-
-    /*const deployedToken = await NftToken.at(_deployedTokenAddress);
-    console.log("NftToken address:", deployedToken.address);
-
-    const deployedTokenStorage = await NftTokenStorage.at(_deployedTokenStorageAddress);
-    console.log("NftTokenStorage address:", deployedTokenStorage.address);
-
-    const deployedTokenSwapStorage = await NftTokenSwapStorage.at(_deployedTokenSwapStorageAddress);
-    console.log("NftTokenSwapStorage address:", deployedTokenSwapStorage.address);*/
+    const _percentageBasisPoints = new web3.utils.BN(300); // 3% royalties
 
     // (........................................)
 
-    //await deployer.deploy(NftTokenToyo,    "Toyo - First 9", "TOYF9");
     deployedTokenToyo = await NftTokenToyo.new("Toyo - First 9", "TOYF9");
-    //deployedTokenToyo = await NftTokenToyo.deployed();
-    //console.log("NftTokenToyo address:", deployedTokenToyo.address);
 
-    //await deployer.deploy(NftTokenBox,     "Toyo - First 9", "TOYF9BOX");
     deployedTokenBox = await NftTokenBox.new("Toyo - First 9", "TOYF9BOX");
-    //deployedTokenBox = await NftTokenBox.deployed();
-    //console.log("NftTokenBox address:", deployedTokenBox.address);
 
-    //await deployer.deploy(NftTokenAirdrop, "Toyo - First 9", "TOYF9AIR");
     deployedTokenAirdrop = await NftTokenAirdrop.new("Toyo - First 9", "TOYF9AIR");
-    //deployedTokenAirdrop = await NftTokenAirdrop.deployed();
-    //console.log("NftTokenAirdrop address:", deployedTokenAirdrop.address);
-
-    /*await deployer.deploy(NftTokenCrowdsale, 
-        _vault, 
-        deployedToken.address, 
-        deployedTokenAirdrop.address, 
-        deployedTokenStorage.address);*/
 
     deployedFactory = await NftTokenCrowdsale.new(
-        _vault, 
-        deployedToken.address, 
-        deployedTokenToyo.address, 
-        deployedTokenBox.address, 
-        deployedTokenAirdrop.address, 
-        deployedTokenStorage.address);
-
-    //deployedFactory = await NftTokenCrowdsale.deployed();
-    //console.log("NftTokenCrowdsale address:", deployedFactory.address);
-
-    /*await deployer.deploy(NftTokenSwap, 
-        deployedToken.address, 
-        deployedTokenToyo.address, 
-        deployedTokenBox.address, 
-        deployedTokenStorage.address,
-        deployedTokenSwapStorage.address
-    );*/
+      _vault,
+      deployedToken.address,
+      deployedTokenToyo.address,
+      deployedTokenBox.address,
+      deployedTokenAirdrop.address,
+      deployedTokenStorage.address);
 
     deployedSwap = await NftTokenSwap.new(
-        deployedToken.address, 
-        deployedTokenToyo.address, 
-        deployedTokenBox.address, 
-        deployedTokenStorage.address,
-        deployedTokenSwapStorage.address
+      deployedToken.address,
+      deployedTokenToyo.address,
+      deployedTokenBox.address,
+      deployedTokenStorage.address,
+      deployedTokenSwapStorage.address
     );
 
-    //deployedSwap = await NftTokenSwap.deployed();
-    //console.log("NftTokenSwap address:", deployedSwap.address);
-
     // Roles
-    
+
     this.MINTER_ROLE = web3.utils.keccak256("MINTER_ROLE");
     this.DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -199,7 +96,6 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
     // Grant roles to deployer account
 
-    //const deployerAccount = accounts[0];
     const deployerAccount = _;
 
     await deployedToken.grantRole(this.DEFAULT_ADMIN_ROLE, deployerAccount);
@@ -218,11 +114,8 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
     await deployedFactory.initialize(_coolDownSeconds, _royaltiesRecipientAddress, _percentageBasisPoints);
 
+    // (........................................)
 
- 
-  // (........................................)
- 
- 
     // NFT Token Types
     // Token Type 1 - Caixa fechada
     rate1 = ether('0.2');
@@ -256,7 +149,6 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     await deployedFactory.addTokenType(metadata3, rate3, maxSupply3, purchaseCap3, paused);
 
     tokenType3 = await deployedFactory.getLastTypeId();
-    //deployedFactory.unpause(this.tokenType3);
 
     // Token Type 4 - Toyo
 
@@ -268,7 +160,6 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     await deployedFactory.addTokenType(metadata4, rate4, maxSupply4, purchaseCap4, paused);
 
     tokenType4 = await deployedFactory.getLastTypeId();
-    //deployedFactory.unpause(this.tokenType4);
 
     // Configure Token Swap Mapping
     await deployedSwap.setTokenSwapQuantity(tokenType1, 2);
@@ -281,7 +172,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     await deployedSwap.setTokenSwapMapping(tokenType2, 2, tokenType4, true);
   });
 
-  const buyAndSwapTokens = async (_this, _tokenContract, _tokenType, _tokenId) => {
+  const buyAndSwapTokens = async (_tokenContract, _tokenType, _tokenId, _code, _signature) => {
     const quantity = new BN(1);
     const weiAmount = rate1.mul(quantity);
 
@@ -300,7 +191,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     await _tokenContract.approve(deployedSwap.address, _tokenId, { from: player1 });
 
     // Swap the token id
-    await deployedSwap.swapToken(player1, _tokenId, _tokenType, { value: new BN(0), from: player1 });
+    await deployedSwap.swapToken(_tokenId, _tokenType, _code, _signature, { value: new BN(0), from: player1 });
 
     // Check if the total minted after swap is correct
     const totalMintedAfterSwap = await deployedFactory.getTotalMinted();
@@ -317,9 +208,9 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
       typeMetadata = await deployedTokenStorage.getMetadata(toTypeId);
       hasMetadataByToken = await deployedSwap.hasMetadataByToken(_tokenType, order);
 
-      if(hasMetadataByToken){
+      if (hasMetadataByToken) {
         tokenMetadata = await deployedTokenToyo.tokenURI(_tokenId);
-        tokenMetadata.should.be.equal(typeMetadata+_tokenId+".json");  
+        tokenMetadata.should.be.equal(typeMetadata + _code + ".json");
       } else {
         tokenMetadata = await deployedTokenBox.tokenURI(_tokenId);
         tokenMetadata.should.be.equal(typeMetadata);
@@ -327,12 +218,21 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     }
   }
 
-  describe('swap', function(){
+  describe('swap', function () {
     it('swap token from old collection', async function () {
       var tokenId = await deployedTokenStorage.getTotalMinted();
       tokenId++;
 
-      await buyAndSwapTokens(this, deployedToken, tokenType1, tokenId);
+      var code = "abcd";
+      var publicKey = process.env.PUBLIC_KEY_SIGN_MESSAGES;
+      var privateKey = process.env.PRIVATE_KEY_SIGN_MESSAGES;
+      var message = web3.utils.soliditySha3(tokenId + code);
+      var signner = web3.eth.accounts.sign(message, privateKey);
+      var signature = signner.signature;
+
+      await deployedSwap.setSignerAddress(publicKey, { from: _ });
+
+      await buyAndSwapTokens(deployedToken, tokenType1, tokenId, code, signature);
 
       // Check if the new owner is the swap contract
       const ownerOfAfterSwap = await deployedToken.ownerOf(tokenId);
@@ -343,7 +243,16 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
       var tokenId = await deployedTokenStorage.getTotalMinted();
       tokenId++;
 
-      await buyAndSwapTokens(this, deployedTokenBox, tokenType1, tokenId);
+      var code = "abcd";
+      var publicKey = process.env.PUBLIC_KEY_SIGN_MESSAGES;
+      var privateKey = process.env.PRIVATE_KEY_SIGN_MESSAGES;
+      var message = web3.utils.soliditySha3(tokenId + code);
+      var signner = web3.eth.accounts.sign(message, privateKey);
+      var signature = signner.signature;
+
+      await deployedSwap.setSignerAddress(publicKey, { from: _ });
+
+      await buyAndSwapTokens(deployedTokenBox, tokenType1, tokenId, code, signature);
 
       // Check if the token exists after the swap (burned)
       const tokenExistsAfterSwap = await deployedTokenBox.exists(tokenId);
@@ -351,7 +260,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     });
   });
 
-  describe('crowdsale', function () {
+  describe.skip('crowdsale', function () {
 
     it('tracks the vault', async function () {
       const vault = await deployedFactory.vault();
@@ -375,14 +284,14 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     });
   });
 
-  describe('buy tokens', function () {
+  describe.skip('buy tokens', function () {
     it('allows to buy the token during crowdsale', async function () {
       const quantity = new BN(1);
       const weiAmount = rate1.mul(quantity);
       const tokensMintedBefore = await deployedFactory.getTotalMinted();
 
       await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
-      
+
       const tokensMintedAfter = await deployedFactory.getTotalMinted();
 
       const tokensMinted = new BN(tokensMintedAfter - tokensMintedBefore);
@@ -419,7 +328,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     });
   });
 
-  describe('buy tokens with purchase cap', function () {
+  describe.skip('buy tokens with purchase cap', function () {
 
     it('does not allow to buy with quantity that exceeds the purchase cap', async function () {
       const quantity = new BN(2);
@@ -432,7 +341,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
   });
 
-  describe('buy tokens with max supply', function () {
+  describe.skip('buy tokens with max supply', function () {
     it('does not allow to buy with quantity that exceeds the max supply', async function () {
       const quantity = new BN(10);
       const weiAmount = rate1.mul(quantity);
@@ -454,7 +363,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
   });
 
-  describe('buy tokens while whitelisted', function () {
+  describe.skip('buy tokens while whitelisted', function () {
     it('does not allow to buy with whitelist enabled and while not being part of that list', async function () {
       const weiAmount = rate1;
       const quantity = new BN(1);
@@ -490,11 +399,11 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
       await deployedFactory.setWhitelistByBalance(true);
       await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
-      .should.be.rejectedWith('You are not whitelisted');
+        .should.be.rejectedWith('You are not whitelisted');
     })
   });
 
-  describe('buy tokens while blacklisted', function () {
+  describe.skip('buy tokens while blacklisted', function () {
 
     it('does not allow to buy with blacklist enabled and while not being part of that list', async function () {
       const weiAmount = rate1;
@@ -516,7 +425,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
   });
 
-  describe('buy tokens while graylisted', function () {
+  describe.skip('buy tokens while graylisted', function () {
     it('does not allow to do a second buy while graylisted', async function () {
       const weiAmount = rate1;
       const quantity = new BN(1);
@@ -529,7 +438,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     });
   });
 
-  describe('buy tokens while paused', function () {
+  describe.skip('buy tokens while paused', function () {
 
     it('does not allow to buy with token paused', async function () {
       const weiAmount = rate1;
@@ -608,7 +517,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
   });
 
-  describe('buy tokens as admin', function () {
+  describe.skip('buy tokens as admin', function () {
 
     it('(admin) allows to buy with value sent not equal to the price', async function () {
       const weiAmount = ether('0.1');
@@ -631,7 +540,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
       const quantity = new BN(10);
       const weiAmount = rate1.mul(quantity);
       const purchaseCap = new BN(1);
-      
+
       await deployedFactory.setPurchaseCap(tokenType1, purchaseCap);
 
       await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
@@ -682,7 +591,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
   });
 
-  describe('buy tokens and track funds raised', function () {
+  describe.skip('buy tokens and track funds raised', function () {
 
     it('tracks the wei raised after buying the token', async function () {
       const weiAmount = rate1;
@@ -702,7 +611,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
   });
 
-  describe('buy tokens and track vault balance', function () {
+  describe.skip('buy tokens and track vault balance', function () {
 
     it('tracks the wei raised was sent to vault after a buying', async function () {
       const weiAmount = ether('0.2');
@@ -720,7 +629,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
   });
 
-  describe('check royalties', function () {
+  describe.skip('check royalties', function () {
 
     it('does royalties on constructor is working', async function () {
       const quantity = new BN(1);
@@ -740,7 +649,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
       const quantity = new BN(1);
       const tokenId = new BN(1);
       const weiAmount = rate1.mul(quantity);
-      
+
       const salesPrice = new BN(100);
       const basisPoints = new BN(400); // 4% royalty
       const salesRoyalty = new BN(4);
