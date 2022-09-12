@@ -30,6 +30,7 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
     NftTokenBox public tokenBox;
     NftTokenStorage public tokenStorage;
     NftTokenSwapStorage public tokenSwapStorage;
+    address public signerAddress;
 
     /**
      * Event for token purchase logging
@@ -75,7 +76,8 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
         NftTokenToyo _tokenToyo,
         NftTokenBox _tokenBox,
         NftTokenStorage _tokenStorage,
-        NftTokenSwapStorage _swapStorage
+        NftTokenSwapStorage _swapStorage,
+        address _signerAddress
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(PAUSER_ROLE, msg.sender);
@@ -86,9 +88,8 @@ contract NftTokenSwap is AccessControl, Ownable, Pausable, ReentrancyGuard {
         tokenBox = _tokenBox;
         tokenStorage = _tokenStorage;
         tokenSwapStorage = _swapStorage;
+        signerAddress = _signerAddress;
     }
-
-    address public signerAddress;
 
     function matchSigner(bytes32 hash, bytes memory signature) private view returns (bool) {
         return signerAddress == hash.toEthSignedMessageHash().recover(signature);
