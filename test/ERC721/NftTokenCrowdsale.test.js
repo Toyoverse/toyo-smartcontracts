@@ -11,6 +11,9 @@ require('chai')
   .use(require('chai-bn')(BN))
   .should();
 
+const ToyoGovernanceToken = artifacts.require('ToyoGovernanceToken');
+const { deployProxy, upgradeProxy } = require('@openzeppelin/truffle-upgrades');
+
 const NftToken = artifacts.require('NftToken');
 const NftTokenToyo = artifacts.require('NftTokenToyo');
 const NftTokenBox = artifacts.require('NftTokenBox');
@@ -28,7 +31,8 @@ let deployedToken,
   deployedTokenBox,
   deployedTokenAirdrop,
   deployedFactory,
-  deployedSwap;
+  deployedSwap,
+  deployedGovernanceToken;
 
 let paused;
 let tokenType1, rate1, maxSupply1, purchaseCap1, metadata1;
@@ -60,6 +64,8 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
     // (........................................)
 
+    deployedGovernanceToken = await deployProxy(ToyoGovernanceToken, ["Toyoverse", "$TOYO"], { _ });
+
     deployedTokenToyo = await NftTokenToyo.new("Toyo - First 9", "TOYF9");
 
     deployedTokenBox = await NftTokenBox.new("Toyo - First 9", "TOYF9BOX");
@@ -72,14 +78,16 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
       deployedTokenToyo.address,
       deployedTokenBox.address,
       deployedTokenAirdrop.address,
-      deployedTokenStorage.address);
+      deployedTokenStorage.address,
+      deployedGovernanceToken.address);
 
     deployedSwap = await NftTokenSwap.new(
       deployedToken.address,
       deployedTokenToyo.address,
       deployedTokenBox.address,
       deployedTokenStorage.address,
-      deployedTokenSwapStorage.address
+      deployedTokenSwapStorage.address,
+      process.env.PUBLIC_KEY_SIGN_MESSAGES
     );
 
     // Roles
@@ -100,8 +108,6 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
     await deployedToken.grantRole(this.DEFAULT_ADMIN_ROLE, deployerAccount);
     await deployedTokenAirdrop.grantRole(this.DEFAULT_ADMIN_ROLE, deployerAccount);
-    await deployedFactory.grantRole(this.DEFAULT_ADMIN_ROLE, deployerAccount);
-    await deployedFactory.grantRole(this.MINTER_ROLE, deployerAccount);
 
     // Grant roles to swap contract
 
@@ -218,7 +224,7 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     }
   }
 
-  describe('swap', function () {
+  describe.skip('swap', function () {
     it('swap token from old collection', async function () {
       var tokenId = await deployedTokenStorage.getTotalMinted();
       tokenId++;
@@ -284,13 +290,17 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     });
   });
 
-  describe.skip('buy tokens', function () {
+  describe('buy tokens', function () {
     it('allows to buy the token during crowdsale', async function () {
       const quantity = new BN(1);
-      const weiAmount = rate1.mul(quantity);
       const tokensMintedBefore = await deployedFactory.getTotalMinted();
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1, { from: player1 });
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
+
+      (await deployedGovernanceToken.balanceOf(player1)).should.be.a.bignumber.that.equals(ether('99.8'));
 
       const tokensMintedAfter = await deployedFactory.getTotalMinted();
 
@@ -300,17 +310,21 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     });
 
     it('does not allow to buy with value sent not equal to the price', async function () {
-      const weiAmount = ether('0.1');
+      const amount = ether('0.1');
       const quantity = new BN(1);
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
-        .should.be.rejectedWith('Value sent is below the price');
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, amount, { from: player1 });
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
+        .should.be.rejectedWith('Allowance is below the price');
     })
 
     it('allows to burn token purchased by you', async function () {
       const quantity = new BN(1);
       const weiAmount = rate1.mul(quantity);
 
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1, { from: player1 });
       await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
 
       await deployedTokenBox.burn(1, { from: player1 });
@@ -320,10 +334,10 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
     it('does not allow to burn token not purchased by you', async function () {
       const quantity = new BN(1);
-      const weiAmount = rate1.mul(quantity);
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
-
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1, { from: player1 });
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
       await deployedTokenBox.burn(1, { from: royaltyAddress }).should.be.rejectedWith('caller is not owner nor approved');
     });
   });
@@ -332,11 +346,14 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
 
     it('does not allow to buy with quantity that exceeds the purchase cap', async function () {
       const quantity = new BN(2);
-      const weiAmount = rate1.mul(quantity);
       const purchaseCap = new BN(1);
 
       await deployedFactory.setPurchaseCap(tokenType1, purchaseCap);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('Quantity exceeds purchase cap');
     })
   });
@@ -344,61 +361,84 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
   describe.skip('buy tokens with max supply', function () {
     it('does not allow to buy with quantity that exceeds the max supply', async function () {
       const quantity = new BN(10);
-      const weiAmount = rate1.mul(quantity);
+      const maxSupply = new BN(1);
 
-      await deployedFactory.setPurchaseCap(tokenType1, quantity);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+      await deployedFactory.setMaxSupply(tokenType1, maxSupply);
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('Quantity exceeds max supply');
     })
 
     it('allows to buy when quantity reaches max supply', async function () {
       const quantity = new BN(1);
-      const weiAmount = rate1.mul(quantity);
 
       var tokensMinted = await deployedFactory.getTotalMinted();
       tokensMinted++;
 
       await deployedFactory.setMaxSupply(tokenType1, tokensMinted);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
     })
   });
 
   describe.skip('buy tokens while whitelisted', function () {
     it('does not allow to buy with whitelist enabled and while not being part of that list', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setWhitelist(true);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('You are not whitelisted');
     })
 
     it('allows to buy with whitelist enabled and white being part of that list', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setWhitelist(true);
       await deployedFactory.addToWhitelist(player1);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
     })
 
     it('allows to buy with whitelist by balance enabled and with balance', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
       const seconds = new BN(0);
 
       await deployedFactory.setCoolDown(seconds);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
+      
       await deployedFactory.setWhitelistByBalance(true);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
     })
 
     it('does not allow to buy with whitelist by balance enabled with no balance', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setWhitelistByBalance(true);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('You are not whitelisted');
     })
   });
@@ -406,34 +446,45 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
   describe.skip('buy tokens while blacklisted', function () {
 
     it('does not allow to buy with blacklist enabled and while not being part of that list', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setBlacklist(true);
       await deployedFactory.addToBlacklist(player1);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('You are blacklisted');
     })
 
     it('allows to buy with blacklist disabled and while part of that list', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setBlacklist(false);
       await deployedFactory.addToBlacklist(player1);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
     })
   });
 
   describe.skip('buy tokens while graylisted', function () {
     it('does not allow to do a second buy while graylisted', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
       const seconds = new BN(60); // 60 seconds
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
       await deployedFactory.setCoolDown(seconds);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+      
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('You are graylisted');
     });
   });
@@ -441,23 +492,28 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
   describe.skip('buy tokens while paused', function () {
 
     it('does not allow to buy with token paused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pause(tokenType1);
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('paused');
     })
 
     it('allows to buy token 1 with token 2 paused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pause(tokenType2);
 
       const tokensMintedBefore = await deployedFactory.getTotalMinted();
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
 
       const tokensMintedAfter = await deployedFactory.getTotalMinted();
 
@@ -469,15 +525,17 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
 
     it('allows to buy with token unpaused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pause(tokenType1);
       await deployedFactory.unpause(tokenType1);
 
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
       const tokensMintedBefore = await deployedFactory.getTotalMinted();
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
 
       const tokensMintedAfter = await deployedFactory.getTotalMinted();
 
@@ -487,27 +545,31 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     })
 
     it('does not allow to buy with crowdsale paused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pauseAll();
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 })
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 })
         .should.be.rejectedWith('Paused');
 
       await deployedFactory.unpauseAll();
     })
 
     it('allows to buy with crowdsale unpaused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pauseAll();
       await deployedFactory.unpauseAll();
 
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
       const tokensMintedBefore = await deployedFactory.getTotalMinted();
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
 
       const tokensMintedAfter = await deployedFactory.getTotalMinted();
 
@@ -520,73 +582,97 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
   describe.skip('buy tokens as admin', function () {
 
     it('(admin) allows to buy with value sent not equal to the price', async function () {
-      const weiAmount = ether('0.1');
       const quantity = new BN(1);
 
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
     it('(admin) allows to buy with quantity that exceeds the purchase cap', async function () {
       const quantity = new BN(2);
-      const weiAmount = rate1.mul(quantity);
       const purchaseCap = new BN(1);
 
       await deployedFactory.setPurchaseCap(tokenType1, purchaseCap);
 
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
     it('(admin) allows to buy with quantity that exceeds the max supply', async function () {
       const quantity = new BN(10);
-      const weiAmount = rate1.mul(quantity);
       const purchaseCap = new BN(1);
 
       await deployedFactory.setPurchaseCap(tokenType1, purchaseCap);
 
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
     it('(admin) allows to buy with whitelist enabled and while not being part of that list', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setWhitelist(true);
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
     it('(admin) allows to buy with blacklist enabled and while not being part of that list', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.setBlacklist(true);
       await deployedFactory.addToBlacklist(player1);
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
     it('(admin) allows to do a second buy while graylisted', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
       const seconds = new BN(60); // 60 seconds
 
       await deployedFactory.setCoolDown(seconds);
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+      
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
+
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     });
 
     it('(admin) allows to buy with token paused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pause(tokenType1);
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
     it('(admin) allows to buy with crowdsale paused', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
 
       await deployedFactory.pauseAll();
-      await deployedFactory.buyTokens(_, tokenType1, quantity, { value: weiAmount, from: _ });
+
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(_, tokenType1, quantity, { from: _ });
     })
 
   });
@@ -594,38 +680,44 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
   describe.skip('buy tokens and track funds raised', function () {
 
     it('tracks the wei raised after buying the token', async function () {
-      const weiAmount = rate1;
       const quantity = new BN(1);
       const seconds = new BN(0);
 
       await deployedFactory.setCoolDown(seconds);
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
-      const weiRaisedFirstSell = await deployedFactory.weiRaised();
-      weiRaisedFirstSell.should.be.a.bignumber.that.equals(weiAmount);
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
+      const weiRaisedFirstSell = await deployedFactory.weiRaised();
+      weiRaisedFirstSell.should.be.a.bignumber.that.equals(rate1);
+
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
       const weiRaisedSecondSell = await deployedFactory.weiRaised();
 
-      weiRaisedSecondSell.should.be.a.bignumber.that.equals(weiAmount.mul(new BN(2)));
+      weiRaisedSecondSell.should.be.a.bignumber.that.equals(rate1.mul(new BN(2)));
     })
   });
 
   describe.skip('buy tokens and track vault balance', function () {
 
     it('tracks the wei raised was sent to vault after a buying', async function () {
-      const weiAmount = ether('0.2');
       const quantity = new BN(1);
 
-      const beforeBalance = new BN(await web3.eth.getBalance(vault));
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      const beforeBalance = new BN(await deployedGovernanceToken.balanceOf(vault));
 
-      const afterBalance = new BN(await web3.eth.getBalance(vault));
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
+
+      const afterBalance = new BN(await deployedGovernanceToken.balanceOf(vault));
 
       const balanceDifference = afterBalance.sub(beforeBalance);
 
-      balanceDifference.should.be.a.bignumber.that.equals(weiAmount);
+      balanceDifference.should.be.a.bignumber.that.equals(rate1.mul(quantity));
     })
   });
 
@@ -634,12 +726,14 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     it('does royalties on constructor is working', async function () {
       const quantity = new BN(1);
       const tokenId = new BN(1);
-      const weiAmount = rate1.mul(quantity);
 
       const salesPrice = new BN(1000);
       const salesRoyalty = new BN((salesPrice.mul(percentageBasisPoints)) / 10000);
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
       var royalty = await deployedTokenBox.royaltyInfo(tokenId, salesPrice);
 
       royalty.royaltyAmount.should.be.a.bignumber.that.equals(salesRoyalty);
@@ -648,7 +742,6 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
     it('does royalties basis points and address are being setting and getting correctly', async function () {
       const quantity = new BN(1);
       const tokenId = new BN(1);
-      const weiAmount = rate1.mul(quantity);
 
       const salesPrice = new BN(100);
       const basisPoints = new BN(400); // 4% royalty
@@ -657,7 +750,10 @@ contract('NftTokenCrowdsale', function ([_, vault, player1, royaltyAddress, play
       await deployedFactory.setRoyaltiesRecipientAddress(royaltiesRecipientAddress);
       await deployedFactory.setPercentageBasisPoints(basisPoints);
 
-      await deployedFactory.buyTokens(player1, tokenType1, quantity, { value: weiAmount, from: player1 });
+      await deployedGovernanceToken.mint(player1, ether('100'), { from: _ });
+      await deployedGovernanceToken.approve(deployedFactory.address, rate1.mul(quantity), { from: player1 });
+
+      await deployedFactory.buyTokens(player1, tokenType1, quantity, { from: player1 });
       var royalty = await deployedTokenBox.royaltyInfo(tokenId, salesPrice);
 
       royalty.royaltyAmount.should.be.a.bignumber.that.equals(salesRoyalty);

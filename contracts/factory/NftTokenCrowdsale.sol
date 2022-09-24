@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity ^0.8.16;
 
 import "../tokens/ERC721/NftTokenBase.sol";
 import "./NftTokenStorage.sol";
@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract NftTokenCrowdsale is
     AccessControl,
@@ -31,6 +32,8 @@ contract NftTokenCrowdsale is
     address public vault;
 
     bool public isWhitelistByBalanceEnabled;
+
+    address public paymentToken;
 
     /**
      * Event for token purchase logging
@@ -108,8 +111,12 @@ contract NftTokenCrowdsale is
         NftTokenBase _tokenToyo,
         NftTokenBase _tokenBox,
         NftTokenBase _tokenAirdrop,
-        NftTokenStorage _storage
-    ) isValidAddress(_vault) {
+        NftTokenStorage _storage,
+        address _paymentToken
+    ) 
+        isValidAddress(_vault)
+        isValidAddress(_paymentToken) 
+    {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(PAUSER_ROLE, msg.sender);
         _setupRole(MINTER_ROLE, msg.sender);
@@ -120,7 +127,7 @@ contract NftTokenCrowdsale is
         tokenAirdrop = _tokenAirdrop;
         tokenStorage = _storage;
         vault = _vault;
-        
+        paymentToken = _paymentToken;
     }
 
     function initialize(
@@ -153,17 +160,15 @@ contract NftTokenCrowdsale is
         isValidAddress(_spender)
         isValidQuantity(_quantity)
     {
-        uint256 _wei = msg.value;
+        uint256 _price = getRate(_typeId);
 
-        _preValidatePurchase(_spender, _wei, _typeId, _quantity);
-
-        _forwardFunds();
+        _preValidatePurchase(_spender, _price, _typeId, _quantity);
 
         for (uint256 i = 0; i < _quantity; i++) {
             _processPurchase(_spender, _typeId, tokenBox);
         }
 
-        _postValidatePurchase(_spender, _typeId, _wei);
+        _postValidatePurchase(_spender, _typeId, _price);
     }
 
     /**
@@ -574,13 +579,13 @@ contract NftTokenCrowdsale is
         return bytes(tokenStorage.getMetadata(_typeId)).length != 0;
     }
 
-    function _hasExactWei(
-        uint256 _wei,
+    function _hasExactPrice(
+        uint256 _price,
         uint256 _typeId,
         uint256 _quantity
     ) internal view returns (bool) {
         uint256 total = tokenStorage.getRate(_typeId).mul(_quantity);
-        return (total == _wei);
+        return (total == _price);
     }
 
     function _hasEnoughQuantity(uint256 _typeId, uint256 _quantity)
@@ -673,26 +678,26 @@ contract NftTokenCrowdsale is
     /**
      * @dev Validation of an incoming purchase. Use require statements to revert state when conditions are not met. Use super to concatenate validations.
      * @param _spender Address performing the token purchase
-     * @param _wei Value in wei involved in the purchase
+     * @param _price Value in wei involved in the purchase
      * @param _typeId of the token type being sold
      * @param _quantity of the token type being sold
      */
     function _preValidatePurchase(
         address _spender,
-        uint256 _wei,
+        uint256 _price,
         uint256 _typeId,
         uint256 _quantity
     ) internal {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            uint256 _amount = _price.mul(_quantity);
+            require(_amount > 0, "Amount cannot be zero");
+            require(_price > 0, "Price cannot be zero");
+            require(_amount <= IERC20(paymentToken).balanceOf(msg.sender), "Not enough balance");
+            require(IERC20(paymentToken).allowance(msg.sender, address(this)) >= _amount, "Allowance is below the price");
+
             require(!_isBlacklisted(_spender), "You are blacklisted");
             require(_isWhitelisted(_spender), "You are not whitelisted");
             require(!_isGraylisted(_spender), "You are graylisted");
-
-            require(_wei > 0, "Wei amount cannot be zero");
-            require(
-                _hasExactWei(_wei, _typeId, _quantity),
-                "Value sent is below the price"
-            );
 
             require(!paused(), "Paused");
             require(!_isPaused(_typeId), "Token type is paused");
@@ -705,12 +710,14 @@ contract NftTokenCrowdsale is
                 _quantity <= getPurchaseCap(_typeId),
                 "Quantity exceeds purchase cap"
             );
+
+            _forwardTokenFunds(_amount);
         }
 
         uint256 _existingContribution = tokenStorage.getUserContribution(
             _spender
         );
-        uint256 _newContribution = _existingContribution.add(_wei);
+        uint256 _newContribution = _existingContribution.add(_price);
         tokenStorage.setUserContribution(_spender, _newContribution);
     }
 
@@ -783,10 +790,14 @@ contract NftTokenCrowdsale is
         _deliverTokens(_spender, _typeId, _token);
     }
 
-    /**
-     * @dev Determines how ETH is stored/forwarded on purchases.
-     */
-    function _forwardFunds() internal {
-        payable(vault).transfer(msg.value);
+    function _forwardTokenFunds(uint256 _amount) internal {
+        IERC20(paymentToken).transferFrom(msg.sender, vault, _amount);
+    }
+
+    function setPaymentToken(address _paymentToken)
+        public
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        paymentToken = _paymentToken;
     }
 }
